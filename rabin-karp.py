@@ -1,5 +1,7 @@
 import random
 from Crypto.Util import number
+import sys
+import ast
 
 # Compute (a*b) mod n
 
@@ -71,21 +73,80 @@ def get_rand(nbits):
     return number.getPrime(nbits)
 
 
-def rabin_karp(text, pattern, outfile='out.txt', nbits=32):
+def pretty_print_shift(s, m, text, pre_post=5):
+    pr = 'Valid Shift Found! Position = {}, Context: '.format(s)
+    l = max(0, s - pre_post)        
+    r = min(s + m + pre_post, len(text))
+
+    pr += text[l:max(0, s)]
+    pr += ' >> ' + text[s:s+m] + ' << '
+    pr += text[min(len(text), s+m):r]
+    print(pr)
+
+
+def veryfy_shifts(textfile, pfile, shiftfile):
+    text = ''
+    with open(textfile) as f:
+        for l in f.readlines():
+            text += l
+        f.close()
+    
+    pattern = ''
+    with open(pfile) as f:
+        for l in f.readlines():
+            pattern += l
+        f.close()
+
+    shifts = ''
+    with open(shiftfile) as f:
+        shifts = f.readline().strip()
+        f.close()
+    shifts = shifts.replace('Valid Shift Positions: ', '')
+    shifts = ast.literal_eval(shifts)
+
+    pos = 0
+    org_shifts = []
+    while pos >= 0:
+        pos = text.find(pattern, pos)
+        if pos >= 0:
+            org_shifts.append(pos)
+            pos += 1
+    
+    if org_shifts == shifts:
+        print('Shifts are identical')
+    else:
+        print('Failed to verify Shifts. Original number of Shifts: {}, Identified: {}'.format(org_shifts, shifts))
+
+
+def rabin_karp(textfile, pfile, outfile='out.txt', nbits=32, radix=256):
     prime = get_rand(nbits)
 
+    text = ''
+    with open(textfile) as f:
+        for l in f.readlines():
+            text += l
+        f.close()
+
+    pattern = ''
+    with open(pfile) as f:
+        for l in f.readlines():
+            pattern += l
+        f.close()
+
+    if len(text) < len(pattern):
+        print('The pattern is longer than the text! No Valid Shifts')
+        return
+
     print('Prime modulus chosen: {}'.format(prime))
-    window = Window(text, pattern, prime)
+    window = Window(text, pattern, prime, radix=radix)
     shift_pos = []
     spurios_pos = []
     while window.cur_pos <= (len(text) - len(pattern)):
         s = find_next_shift(text, window)
-        x = 10
         if s >= 0:
             # Verify if it is valid
             if text[s:s+len(pattern)] == pattern:
-                print('Valid shift found! S = {}, Context: {} >>{}<< {}'.format(s, text[max(s-x, 0):s-1],
-                text[s:s+len(pattern)], text[s+len(pattern)+1: min(s+x, len(text))]))
+                pretty_print_shift(s, len(pattern), text)
                 shift_pos.append(s)
             else:
                 print('Spurious hit at s = {}, text = {}'.format(
@@ -93,10 +154,50 @@ def rabin_karp(text, pattern, outfile='out.txt', nbits=32):
                 spurios_pos.append(s)
 
             window.shift_one()
+    
+    if outfile:
+        with open(outfile, 'w') as f:
+            f.write('Valid Shift Positions: {}\nSpurious Shifts: {}'.format(shift_pos, spurios_pos))
+            f.close()
+    
     return shift_pos, spurios_pos
 
 if __name__ == '__main__':
-    text= '12345678910111213141516'
-    pattern= '111'
-    shift_pos, spurious_pos = rabin_karp(text, pattern)
-    print('Shifts: {}, Spurious Hits: {}'.format(shift_pos, spurious_pos))
+    args = sys.argv
+    arglen = len(args)
+
+    if arglen < 4:
+        print('Usage: {} {} {} {} {} {} {}'.format(
+            args[0], 'match|verify', '<Text In File>', '<Pattern File>', '[Out File]', '[Radix]', '[Prime Bit Length]')
+            )
+        exit()
+    
+    infile = args[2]
+    pattern = args[3]
+    
+    radix = 256
+    nbits = 32
+    outfile = None
+    
+    if args[1].lower() == 'match':
+        if arglen == 5:
+            outfile = args[4]
+
+        if arglen == 6:
+            radix = args[5]
+
+        if arglen == 7:
+            outfile = args[6]
+        
+        rabin_karp(textfile=infile, pfile=pattern, outfile=outfile, nbits=nbits, radix=radix)
+    elif args[1].lower() == 'verify':
+        if arglen < 5:
+            print('Usage: {} {} {} {} {}'.format(args[0], args[1], '<Text File>', '<Pattern File>', '<Shifts File>'))
+        
+        shiftsfile = args[4]
+        veryfy_shifts(infile, pattern, shiftsfile)
+    else:
+        print('Usage: {} {} {} {} {} {} {}'.format(
+            args[0], 'match|verify', '<Text In File>', '<Pattern File>', '[Out File]', '[Radix]', '[Prime Bit Length]')
+            )
+
