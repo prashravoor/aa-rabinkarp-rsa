@@ -3,22 +3,6 @@ from Crypto.Util import number
 import sys
 import ast
 
-# Compute (a*b) mod n
-
-
-def mod_multiply(a, b, n):
-    res = 0  # Initialize result
-    # Update a if it is more than or equal to n
-    a = a % n
-    while (b):
-        if (b & 1):
-            res = (res + a) % n
-
-        a = (2 * a) % n
-        b >>= 1
-    return res
-
-
 class Window():
     def __init__(self, text, pattern, prime, radix=256):
         self.text = text
@@ -37,7 +21,7 @@ class Window():
         sum = 0
         for i in window:
             # Compute sum = {sum*radix + ascii(i)} mod n
-            sum = (mod_multiply(sum, self.radix, self.n) + ord(i)) % self.n
+            sum = (sum * self.radix + ord(i)) % self.n
         return sum
 
     def shift_one(self):
@@ -46,11 +30,14 @@ class Window():
             return
         # Shift window by 1
         # Calculate {cur_hash_t - (text[cur_pos] * msb_value)} + text[cur_pos + m]} mod n
-        multiplicand = self.cur_hash_t - \
-            ord(self.text[self.cur_pos]) * self.msb_value
+        multiplicand = (self.cur_hash_t - \
+            ord(self.text[self.cur_pos]) * self.msb_value) % self.n
+        if multiplicand <= 0:
+            print('Hash T: {}, Cur Pos: {}, MSB: {}, Text:"{}"'.format(self.cur_hash_t, self.cur_pos, self.msb_value, ord(self.text[self.cur_pos])))
         self.cur_hash_t = (
-            mod_multiply(self.radix, multiplicand, self.n)
-            + ord(self.text[self.cur_pos + self.m]))  # % self.n
+            multiplicand * self.radix
+            + ord(self.text[self.cur_pos + self.m])) % self.n
+        self.cur_hash_t = (self.cur_hash_t + self.n) % self.n # Remove any negative hash
         self.cur_pos += 1
 
     def is_matched(self):
@@ -62,6 +49,7 @@ class Window():
 
 def find_next_shift(text, window):
     while (not window.is_matched()) and (window.cur_pos <= len(text) - window.m):
+        # print(window)
         window.shift_one()
 
     if window.is_matched():
@@ -84,7 +72,7 @@ def pretty_print_shift(s, m, text, pre_post=5):
     print(pr)
 
 
-def veryfy_shifts(textfile, pfile, shiftfile):
+def verify_shifts(textfile, pfile, shiftfile):
     text = ''
     with open(textfile) as f:
         for l in f.readlines():
@@ -137,7 +125,12 @@ def rabin_karp(textfile, pfile, outfile='out.txt', nbits=32, radix=256):
         print('The pattern is longer than the text! No Valid Shifts')
         return
 
+    if not pattern:
+        print('Invalid or blank pattern')
+        return
+
     print('Prime modulus chosen: {}'.format(prime))
+    print('Looking for pattern {} in Text Size: {}'.format(pattern, len(text)))
     window = Window(text, pattern, prime, radix=radix)
     shift_pos = []
     spurios_pos = []
@@ -195,7 +188,7 @@ if __name__ == '__main__':
             print('Usage: {} {} {} {} {}'.format(args[0], args[1], '<Text File>', '<Pattern File>', '<Shifts File>'))
         
         shiftsfile = args[4]
-        veryfy_shifts(infile, pattern, shiftsfile)
+        verify_shifts(infile, pattern, shiftsfile)
     else:
         print('Usage: {} {} {} {} {} {} {}'.format(
             args[0], 'match|verify', '<Text In File>', '<Pattern File>', '[Out File]', '[Radix]', '[Prime Bit Length]')
