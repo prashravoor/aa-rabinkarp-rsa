@@ -3,6 +3,7 @@ from Crypto.Util import number
 import sys
 import ast
 
+
 class Window():
     def __init__(self, text, pattern, prime, radix=256):
         self.text = text
@@ -30,14 +31,16 @@ class Window():
             return
         # Shift window by 1
         # Calculate {cur_hash_t - (text[cur_pos] * msb_value)} + text[cur_pos + m]} mod n
-        multiplicand = (self.cur_hash_t - \
-            ord(self.text[self.cur_pos]) * self.msb_value) % self.n
+        multiplicand = (self.cur_hash_t -
+                        ord(self.text[self.cur_pos]) * self.msb_value) % self.n
         if multiplicand <= 0:
-            print('Hash T: {}, Cur Pos: {}, MSB: {}, Text:"{}"'.format(self.cur_hash_t, self.cur_pos, self.msb_value, ord(self.text[self.cur_pos])))
+            print('Hash T: {}, Cur Pos: {}, MSB: {}, Text:"{}"'.format(
+                self.cur_hash_t, self.cur_pos, self.msb_value, ord(self.text[self.cur_pos])))
         self.cur_hash_t = (
             multiplicand * self.radix
             + ord(self.text[self.cur_pos + self.m])) % self.n
-        self.cur_hash_t = (self.cur_hash_t + self.n) % self.n # Remove any negative hash
+        # Remove any negative hash
+        self.cur_hash_t = (self.cur_hash_t + self.n) % self.n
         self.cur_pos += 1
 
     def is_matched(self):
@@ -63,7 +66,7 @@ def get_rand(nbits):
 
 def pretty_print_shift(s, m, text, pre_post=5):
     pr = 'Valid Shift Found! Position = {}, Context: '.format(s)
-    l = max(0, s - pre_post)        
+    l = max(0, s - pre_post)
     r = min(s + m + pre_post, len(text))
 
     pr += text[l:max(0, s)]
@@ -72,13 +75,24 @@ def pretty_print_shift(s, m, text, pre_post=5):
     print(pr)
 
 
-def verify_shifts(textfile, pfile, shiftfile):
+def verify_shifts(text, pattern, shifts):
+    pos = 0
+    org_shifts = []
+    while pos >= 0:
+        pos = text.find(pattern, pos)
+        if pos >= 0:
+            org_shifts.append(pos)
+            pos += 1
+    return org_shifts
+
+
+def verify_shifts_file(textfile, pfile, shiftfile):
     text = ''
     with open(textfile) as f:
         for l in f.readlines():
             text += l
         f.close()
-    
+
     pattern = ''
     with open(pfile) as f:
         for l in f.readlines():
@@ -92,23 +106,16 @@ def verify_shifts(textfile, pfile, shiftfile):
     shifts = shifts.replace('Valid Shift Positions: ', '')
     shifts = ast.literal_eval(shifts)
 
-    pos = 0
-    org_shifts = []
-    while pos >= 0:
-        pos = text.find(pattern, pos)
-        if pos >= 0:
-            org_shifts.append(pos)
-            pos += 1
-    
+    org_shifts = verify_shifts(text, pattern, shifts)
+
     if org_shifts == shifts:
         print('Shifts are identical')
     else:
-        print('Failed to verify Shifts. Original number of Shifts: {}, Identified: {}'.format(org_shifts, shifts))
+        print('Failed to verify Shifts. Original number of Shifts: {}, Identified: {}'.format(
+            org_shifts, shifts))
 
 
-def rabin_karp(textfile, pfile, outfile='out.txt', nbits=32, radix=256):
-    prime = get_rand(nbits)
-
+def rabin_karp_file(textfile, pfile, outfile='out.txt', nbits=32, radix=256):
     text = ''
     with open(textfile) as f:
         for l in f.readlines():
@@ -129,8 +136,57 @@ def rabin_karp(textfile, pfile, outfile='out.txt', nbits=32, radix=256):
         print('Invalid or blank pattern')
         return
 
-    print('Prime modulus chosen: {}'.format(prime))
-    print('Looking for pattern {} in Text Size: {}'.format(pattern, len(text)))
+    shift_pos, spurious_pos = rabin_karp(
+        text, pattern, nbits=nbits, radix=radix)
+    for s in shift_pos:
+        pretty_print_shift(s, len(pattern), text)
+    if outfile:
+        with open(outfile, 'w') as f:
+            f.write('Valid Shift Positions: {}\nSpurious Shifts: {}'.format(
+                shift_pos, spurious_pos))
+            f.close()
+
+
+def rabin_karp(text, pattern, nbits=32, radix=256, prime=None):
+    if not prime:
+        prime = get_rand(nbits)
+    m = len(pattern)
+    n = len(text)
+    h = 1
+    d = radix
+    for i in range(m-1):
+        h = (h*d) % prime
+
+    t = 0
+    p = 0
+    for i in range(m):
+        p = (p*d + ord(pattern[i])) % prime
+        t = (t*d + ord(text[i])) % prime
+
+    shift_pos = []
+    spurious_pos = []
+    for i in range(n - m + 1):
+        if p == t:
+            if text[i:i+m] == pattern:
+                shift_pos.append(i)
+            else:
+                print('Spurious hit at i = {}'.format(i))
+                spurious_pos.append(i)
+
+        if i < n-m:
+            t = (t-h*ord(text[i])) % prime  # remove letter s
+            t = (t*d+ord(text[i+m])) % prime  # add letter s+m
+            t = (t+prime) % prime  # make sure that t >= 0
+
+    return shift_pos, spurious_pos
+
+
+def rabin_karp_old(text, pattern, nbits=32, radix=256, prime=None):
+    if not prime:
+        prime = get_rand(nbits)
+
+    # print('Prime modulus chosen: {}'.format(prime))
+    # print('Looking for pattern {} in Text Size: {}'.format(pattern, len(text)))
     window = Window(text, pattern, prime, radix=radix)
     shift_pos = []
     spurios_pos = []
@@ -142,18 +198,14 @@ def rabin_karp(textfile, pfile, outfile='out.txt', nbits=32, radix=256):
                 pretty_print_shift(s, len(pattern), text)
                 shift_pos.append(s)
             else:
-                print('Spurious hit at s = {}, text = {}'.format(
-                    s, text[s: s+window.m]))
+                # print('Spurious hit at s = {}, text = {}'.format(
+                    # s, text[s: s+window.m]))
                 spurios_pos.append(s)
 
             window.shift_one()
-    
-    if outfile:
-        with open(outfile, 'w') as f:
-            f.write('Valid Shift Positions: {}\nSpurious Shifts: {}'.format(shift_pos, spurios_pos))
-            f.close()
-    
+
     return shift_pos, spurios_pos
+
 
 if __name__ == '__main__':
     args = sys.argv
@@ -162,16 +214,16 @@ if __name__ == '__main__':
     if arglen < 4:
         print('Usage: {} {} {} {} {} {} {}'.format(
             args[0], 'match|verify', '<Text In File>', '<Pattern File>', '[Out File]', '[Radix]', '[Prime Bit Length]')
-            )
+        )
         exit()
-    
+
     infile = args[2]
     pattern = args[3]
-    
+
     radix = 256
     nbits = 32
     outfile = None
-    
+
     if args[1].lower() == 'match':
         if arglen == 5:
             outfile = args[4]
@@ -181,16 +233,18 @@ if __name__ == '__main__':
 
         if arglen == 7:
             outfile = args[6]
-        
-        rabin_karp(textfile=infile, pfile=pattern, outfile=outfile, nbits=nbits, radix=radix)
+
+        rabin_karp_file(textfile=infile, pfile=pattern,
+                        outfile=outfile, nbits=nbits, radix=radix)
     elif args[1].lower() == 'verify':
         if arglen < 5:
-            print('Usage: {} {} {} {} {}'.format(args[0], args[1], '<Text File>', '<Pattern File>', '<Shifts File>'))
-        
+            print('Usage: {} {} {} {} {}'.format(
+                args[0], args[1], '<Text File>', '<Pattern File>', '<Shifts File>'))
+            exit()
+
         shiftsfile = args[4]
-        verify_shifts(infile, pattern, shiftsfile)
+        verify_shifts_file(infile, pattern, shiftsfile)
     else:
         print('Usage: {} {} {} {} {} {} {}'.format(
             args[0], 'match|verify', '<Text In File>', '<Pattern File>', '[Out File]', '[Radix]', '[Prime Bit Length]')
-            )
-
+        )

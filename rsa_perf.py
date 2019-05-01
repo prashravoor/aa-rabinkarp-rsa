@@ -18,6 +18,7 @@ for i in [16, 32, 48, 64, 96, 128]:
     rsa.gen_and_save_key_pair(keyprefix, i)
     start = time.time()
     rsa.encrypt_file(infile, outfile, num_entries=num_entries)
+    rsa.decrypt_file(outfile, defile)
     end = time.time()
     time_bits.append((i, end-start))
 
@@ -27,6 +28,7 @@ time_entries = []
 for i in [1, 5, 10, 100, 200, 500, 1000, 2000, 5000, 10000]:
     start = time.time()
     rsa.encrypt_file(infile, outfile, num_entries=i)
+    rsa.decrypt_file(outfile, defile)
     end = time.time()
     time_entries.append((i, end-start))
 
@@ -34,11 +36,13 @@ for i in [1, 5, 10, 100, 200, 500, 1000, 2000, 5000, 10000]:
 time_num = []
 rsa.gen_and_save_key_pair(keyprefix, nbits=128)
 (e, n), (d, n) = rsa.load_keys(keyprefix)
-for i in [x*2 for x in range(1, 41)]:  # 2,4,6...40
-    p = rsa.get_rand_num(digits=i)
+for i in [x for x in range(1, 41)]:  # 2,4,6...40
     start = time.time()
-    for _ in range(500):  # Repeat 100 times
-        rsa.encrypt_num(p, (e, n))
+    for _ in range(50):  # Repeat 100 times
+        p = rsa.get_rand_num(digits=i)
+        # print('{0:b}'.format(p))
+        c = rsa.encrypt_num(p, (e, n))
+        rsa.decrypt_num(c, (d, n))
     end = time.time()
     time_num.append((i, end-start))
 

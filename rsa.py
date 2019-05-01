@@ -87,8 +87,12 @@ def encrypt_file(filename, outfile, keyprefix=keypair_prefix, num_entries=def_nu
         i = 0
         lines = f.readlines()
         for i in range(min(num_entries, len(lines))):
-            out.write('{}\n'.format(encrypt_num(
-                int(lines[i].strip()), (e, n))))
+            try:
+                out.write('{}\n'.format(encrypt_num(
+                    int(lines[i].strip()), (e, n))))
+            except:
+                print(
+                    '{} is not a number, this entry will be skipped'.format(lines[i]))
         f.close()
     out.close()
 
@@ -99,7 +103,7 @@ def decrypt_file(filename, outfile, keyprefix=keypair_prefix):
 
     print('Encrypting file {} using Key from files {}, {}'.format(
         filename, pkey, skey))
-    (e, n), (d, n) = load_keys(keyfile)
+    (e, n), (d, n) = load_keys(keypair_prefix)
     out = open(outfile, 'w')
     with open(filename) as f:
         for l in f.readlines():
