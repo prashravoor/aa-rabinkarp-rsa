@@ -8,6 +8,11 @@ def_num_entries = 100
 
 
 def get_rand_prime(nbits):
+    try:
+        nbits = int(nbits)
+    except:
+        print('Exception: Not a number: {}'.format(nbits))
+        exit()
     return number.getPrime(nbits)
 
 
@@ -24,6 +29,10 @@ def get_rand_num(digits=19):
 
 
 def gen_data(outfile, num_entries):
+    try:
+        num_entries = int(num_entries)
+    except:
+        print('Invalid number provided for number of entries: {}, Using default = 100'.format(num_entries))
     with open(outfile, 'w') as f:
         for _ in range(num_entries):
             f.write('{}\n'.format(get_rand_num()))
@@ -101,7 +110,7 @@ def decrypt_file(filename, outfile, keyprefix=keypair_prefix):
     pkey = '{}_public.key'.format(filename)
     skey = '{}_private.key'.format(filename)
 
-    print('Encrypting file {} using Key from files {}, {}'.format(
+    print('Decrypting file {} using Key from files {}, {}'.format(
         filename, pkey, skey))
     (e, n), (d, n) = load_keys(keypair_prefix)
     out = open(outfile, 'w')

@@ -32,15 +32,16 @@ for i in [1, 5, 10, 100, 200, 500, 1000, 2000, 5000, 10000]:
     end = time.time()
     time_entries.append((i, end-start))
 
+
 # Vary length of number
 time_num = []
 rsa.gen_and_save_key_pair(keyprefix, nbits=128)
 (e, n), (d, n) = rsa.load_keys(keyprefix)
 for i in [x for x in range(1, 41)]:  # 2,4,6...40
     start = time.time()
-    for _ in range(50):  # Repeat 100 times
+    for _ in range(100):  # Repeat 100 times
         p = rsa.get_rand_num(digits=i)
-        # print('{0:b}'.format(p))
+        # print('{}'.format(p))
         c = rsa.encrypt_num(p, (e, n))
         rsa.decrypt_num(c, (d, n))
     end = time.time()

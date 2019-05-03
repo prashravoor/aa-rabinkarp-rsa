@@ -33,9 +33,9 @@ class Window():
         # Calculate {cur_hash_t - (text[cur_pos] * msb_value)} + text[cur_pos + m]} mod n
         multiplicand = (self.cur_hash_t -
                         ord(self.text[self.cur_pos]) * self.msb_value) % self.n
-        if multiplicand <= 0:
-            print('Hash T: {}, Cur Pos: {}, MSB: {}, Text:"{}"'.format(
-                self.cur_hash_t, self.cur_pos, self.msb_value, ord(self.text[self.cur_pos])))
+        #if multiplicand <= 0:
+            # print('Hash T: {}, Cur Pos: {}, MSB: {}, Text:"{}"'.format(
+            #     self.cur_hash_t, self.cur_pos, self.msb_value, ord(self.text[self.cur_pos])))
         self.cur_hash_t = (
             multiplicand * self.radix
             + ord(self.text[self.cur_pos + self.m])) % self.n
@@ -123,10 +123,13 @@ def rabin_karp_file(textfile, pfile, outfile='out.txt', nbits=32, radix=256):
         f.close()
 
     pattern = ''
-    with open(pfile) as f:
-        for l in f.readlines():
-            pattern += l
-        f.close()
+    try:
+        with open(pfile) as f:
+            for l in f.readlines():
+                pattern += l
+            f.close()
+    except:
+        pattern = pfile
 
     if len(text) < len(pattern):
         print('The pattern is longer than the text! No Valid Shifts')
@@ -147,7 +150,7 @@ def rabin_karp_file(textfile, pfile, outfile='out.txt', nbits=32, radix=256):
             f.close()
 
 
-def rabin_karp(text, pattern, nbits=32, radix=256, prime=None):
+def rabin_karp_old(text, pattern, nbits=32, radix=256, prime=None):
     if not prime:
         prime = get_rand(nbits)
     m = len(pattern)
@@ -181,12 +184,12 @@ def rabin_karp(text, pattern, nbits=32, radix=256, prime=None):
     return shift_pos, spurious_pos
 
 
-def rabin_karp_old(text, pattern, nbits=32, radix=256, prime=None):
+def rabin_karp(text, pattern, nbits=32, radix=256, prime=None):
     if not prime:
         prime = get_rand(nbits)
 
-    # print('Prime modulus chosen: {}'.format(prime))
-    # print('Looking for pattern {} in Text Size: {}'.format(pattern, len(text)))
+    print('Prime modulus chosen: {}'.format(prime))
+    print('Looking for pattern {} in Text Size: {}'.format(pattern, len(text)))
     window = Window(text, pattern, prime, radix=radix)
     shift_pos = []
     spurios_pos = []
@@ -195,11 +198,11 @@ def rabin_karp_old(text, pattern, nbits=32, radix=256, prime=None):
         if s >= 0:
             # Verify if it is valid
             if text[s:s+len(pattern)] == pattern:
-                pretty_print_shift(s, len(pattern), text)
+                # pretty_print_shift(s, len(pattern), text)
                 shift_pos.append(s)
             else:
-                # print('Spurious hit at s = {}, text = {}'.format(
-                    # s, text[s: s+window.m]))
+                print('Spurious hit at s = {}, text = {}'.format(
+                      s, text[s: s+window.m]))
                 spurios_pos.append(s)
 
             window.shift_one()
@@ -211,14 +214,17 @@ if __name__ == '__main__':
     args = sys.argv
     arglen = len(args)
 
-    if arglen < 4:
+    if arglen < 3:
         print('Usage: {} {} {} {} {} {} {}'.format(
-            args[0], 'match|verify', '<Text In File>', '<Pattern File>', '[Out File]', '[Radix]', '[Prime Bit Length]')
+            args[0], 'match|verify', '<Text In File>', '[<Pattern File>]', '[Out File]', '[Radix]', '[Prime Bit Length]')
         )
         exit()
 
     infile = args[2]
-    pattern = args[3]
+    if arglen == 3:
+        pattern = input('Enter the pattern to be matched: ')
+    else:
+        pattern = args[3]
 
     radix = 256
     nbits = 32
@@ -233,6 +239,8 @@ if __name__ == '__main__':
 
         if arglen == 7:
             outfile = args[6]
+        else:
+            outfile = 'out.txt'
 
         rabin_karp_file(textfile=infile, pfile=pattern,
                         outfile=outfile, nbits=nbits, radix=radix)
